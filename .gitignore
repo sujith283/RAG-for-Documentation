@@ -1,0 +1,52 @@
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+*.so
+*.egg-info/
+*.egg
+*.manifest
+*.spec
+
+# Virtual environments
+.venv/
+venv/
+env/
+
+# Jupyter / IPython
+.ipynb_checkpoints/
+
+# Streamlit secrets
+.streamlit/secrets.toml
+
+# Config & local secrets
+config/.env
+config/.env.*
+config/secrets.*.toml
+
+# System files
+.DS_Store
+Thumbs.db
+
+# VSCode / IDE
+.vscode/
+.idea/
+
+# Logs
+*.log
+logs/
+
+# Cache / temp
+.cache/
+*.tmp
+*.swp
+
+# Dependencies
+node_modules/
+package-lock.json
+yarn.lock
+
+# Build artifacts
+dist/
+build/
