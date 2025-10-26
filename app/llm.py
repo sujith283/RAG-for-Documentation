@@ -4,10 +4,11 @@ from app.config import settings
 from groq import Groq
 import time
 
-SYSTEM_PROMPT = """You are a precise, citation-first assistant. 
-Use only the provided context. If unsure, say you don't know.
-Cite sources inline like [1], [2] corresponding to the provided context chunks.
-Keep answers concise and factual."""
+SYSTEM_PROMPT = (
+    "You are a documentation assistant. Use only the provided context to answer user questions. "
+    "Cite facts with inline bracketed numbers like [1], [2] that map to the provided sources. "
+    "Be concise, correct, and practical. Prefer minimal runnable examples for code questions."
+)
 
 class GroqLLM:
     def __init__(self):

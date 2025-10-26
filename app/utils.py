@@ -112,3 +112,41 @@ def clean_text(s: str) -> str:
     # Light clean to avoid prompt injection helpfully (still keep raw for citations panel)
     s = re.sub(r"[ \t]+\n", "\n", s)
     return s.strip()
+
+def build_display_sources_from_contexts(contexts, key_to_num):
+    """
+    Build a list of display-ready sources with clickable link = url#anchor.
+    Expects each context to have metadata keys:
+      url, anchor, title, section or section_heading, source, position
+    """
+    display_sources = []
+    for c in contexts:
+        md = c.get("metadata") or {}
+        title = md.get("title") or md.get("source") or "Source"
+        section = md.get("section") or md.get("section_heading")
+        url = md.get("url")
+        anchor = md.get("anchor")
+        link = f"{url}#{anchor}" if (url and anchor) else url
+
+        # Recreate the key exactly like pipeline used when numbering
+        key = (
+            md.get("source"),
+            md.get("title"),
+            md.get("section") or md.get("section_heading"),
+            md.get("position"),
+        )
+        cite_num = key_to_num.get(key, "?")
+
+        display_sources.append({
+            "n": cite_num,
+            "source": md.get("source"),
+            "title": title,
+            "section": section,
+            "position": md.get("position"),
+            "url": url,
+            "anchor": anchor,
+            "link": link,
+            "snippet": c["text"][:300] + ("..." if len(c["text"]) > 300 else "")
+        })
+    display_sources.sort(key=lambda x: x["n"])
+    return display_sources
