@@ -73,5 +73,24 @@ class Settings:
     max_context_docs: int = int(os.getenv("MAX_CONTEXT_DOCS", "6"))
     min_score: float = float(os.getenv("MIN_SCORE", "0.25"))
 
+    fallback_namespaces = [
+        "python@3.12",
+        "fastapi@0.115",
+        "pydantic@2",
+        "numpy@2.1",
+        "pandas@2.2",
+        "default",
+    ]
+
 # >>> IMPORTANT: expose a module-level settings object <<<
 settings = Settings()
+
+# app/config.py (near other settings)
+fallback_namespaces = [
+    "python@3.12",
+    "fastapi@0.115",
+    "pydantic@2",
+    "numpy@2.1",
+    "pandas@2.2",
+    "default",
+]

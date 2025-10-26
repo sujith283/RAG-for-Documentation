@@ -122,34 +122,84 @@ class PineconeRetriever:
     def retrieve(
         self,
         query: str,
-        top_k: Optional[int] = None,
-        namespace: Optional[str] = None,
+        top_k: int | None = None,
+        namespace: str | None = None,
         min_score: float = 0.25,
     ):
         top_k = top_k or settings.initial_recall_k
-        namespace = namespace or settings.pinecone_namespace
-
         qvec = self.embed([query])[0]
-        res = self.index.query(
-            vector=qvec,
-            top_k=top_k,
-            include_metadata=True,
-            namespace=namespace,
-        )
 
+        # If a namespace is explicitly provided and non-empty → query just that namespace
+        if namespace and namespace.strip():
+            res = self.index.query(
+                vector=qvec,
+                top_k=top_k,
+                include_metadata=True,
+                namespace=namespace.strip(),
+            )
+            return self._hits_from_matches(res.get("matches", []), min_score)
+
+        # Otherwise → query ALL namespaces and merge
+        namespaces = self._list_namespaces_fallback_safe()
+        all_matches = []
+        for ns in namespaces:
+            try:
+                res = self.index.query(
+                    vector=qvec,
+                    top_k=top_k,  # per-namespace
+                    include_metadata=True,
+                    namespace=ns,
+                )
+                for m in res.get("matches", []):
+                    # carry namespace along for debugging / optional display
+                    md = (m.get("metadata") or {}).copy()
+                    md["_namespace"] = ns
+                    all_matches.append({"id": m.get("id"), "score": m.get("score", 0.0), "metadata": md})
+            except Exception as e:
+                print(f"[WARN] query failed for namespace='{ns}': {e}")
+
+        # Merge globally, re-attach text, apply min_score, slice top_k
+        all_matches.sort(key=lambda x: x["score"], reverse=True)
         hits = []
-        for m in res.get("matches", []):
+        for m in all_matches:
+            if m["score"] >= min_score:
+                md = m["metadata"]
+                hits.append({
+                    "id": m["id"],
+                    "score": m["score"],
+                    "text": md.get("text", ""),
+                    "metadata": md,
+                })
+            if len(hits) >= top_k:
+                break
+        return hits
+
+    def _hits_from_matches(self, matches: List[Dict[str, Any]], min_score: float) -> List[Dict[str, Any]]:
+        out = []
+        for m in matches:
             score = m.get("score", 0.0)
             if score >= min_score:
                 md = m.get("metadata") or {}
-                hits.append(
-                    {
-                        "id": m.get("id"),
-                        "score": score,
-                        "text": md.get("text", ""),
-                        "metadata": md,
-                    }
-                )
-        return hits
+                out.append({
+                    "id": m.get("id"),
+                    "score": score,
+                    "text": md.get("text", ""),
+                    "metadata": md,
+                })
+        return out
 
-
+    def _list_namespaces_fallback_safe(self) -> List[str]:
+        """Discover namespaces from index stats; fall back to settings.fallback_namespaces or ['default']."""
+        try:
+            stats = self.index.describe_index_stats()  # supported in serverless
+            ns_map = (stats or {}).get("namespaces") or {}
+            nss = sorted(ns_map.keys())
+            if nss:
+                return nss
+        except Exception as e:
+            print(f"[WARN] describe_index_stats failed: {e}")
+        # optional configured fallback list
+        fb = getattr(settings, "fallback_namespaces", None)
+        if isinstance(fb, (list, tuple)) and fb:
+            return sorted({ns for ns in fb if isinstance(ns, str) and ns.strip()})
+        return ["default"]
